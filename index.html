@@ -915,44 +915,7 @@ a();new MutationObserver(a).observe(document.body,{childList:true,subtree:true})
   setTimeout(pinSearch, 1500);
 
   // -------- bottom nav: ride the browser URL bar (visualViewport) --------
-  // -------- bottom nav: track URL bar (hybrid: CSS for modern browsers + JS fallback) --------
-  let vvNav = null, vvLastBottom = null;
-  const getNav = () => {
-    const navBtn = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Explore');
-    if (!navBtn) return null;
-    let nav = navBtn;
-    while (nav) { const cs = getComputedStyle(nav); if (cs.position === 'fixed' && cs.bottom === '0px') break; nav = nav.parentElement; }
-    return nav;
-  };
-  const applyNavOffset = () => {
-    if (!window.visualViewport) return;
-    const nav = getNav();
-    if (!nav) return;
-    // offset = space the browser UI (URL bar) occupies at the bottom
-    // when URL bar visible: vv.height < innerHeight -> offset > 0 -> nav rises above it
-    // when URL bar hidden: offset = 0 -> nav sticks to screen bottom
-    const offset = Math.max(0, Math.round(window.innerHeight - window.visualViewport.height));
-    if (offset !== vvLastBottom) {
-      nav.style.bottom = offset + 'px';
-      nav.style.top = 'auto';
-      vvLastBottom = offset;
-    }
-  };
-  const hookNav = () => {
-    const nav = getNav();
-    if (!nav || nav.dataset.vygVvHooked) return;
-    nav.dataset.vygVvHooked = '1';
-    window.visualViewport.addEventListener('resize', applyNavOffset);
-    window.visualViewport.addEventListener('scroll', applyNavOffset);
-    window.addEventListener('resize', applyNavOffset);
-    window.addEventListener('orientationchange', applyNavOffset);
-    applyNavOffset();
-  };
-  const ro3 = new MutationObserver(hookNav);
-  ro3.observe(document.body, {childList:true, subtree:true});
-  setInterval(applyNavOffset, 500); // gentle poll: catches browsers that fire nothing
-  setTimeout(hookNav, 1200);
-  setTimeout(hookNav, 2500);
+
 
   // -------- bottom nav: force natural height (inline React style overrides CSS) --------
   const fixNav = () => {
