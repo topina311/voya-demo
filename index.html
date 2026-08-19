@@ -914,6 +914,32 @@ a();new MutationObserver(a).observe(document.body,{childList:true,subtree:true})
   window.addEventListener('scroll', pinSearch, {passive:true});
   setTimeout(pinSearch, 1500);
 
+  // -------- bottom nav: ride the browser URL bar (visualViewport) --------
+  let vvNav = null;
+  const trackViewport = () => {
+    if (!window.visualViewport) return;
+    const navBtn = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Explore');
+    if (!navBtn) return;
+    let nav = navBtn;
+    while (nav) { const cs = getComputedStyle(nav); if (cs.position === 'fixed' && cs.bottom === '0px') break; nav = nav.parentElement; }
+    if (!nav) return;
+    vvNav = nav;
+    const update = () => {
+      if (!vvNav) return;
+      const vv = window.visualViewport;
+      // bottom offset = layout viewport height - visual viewport height (URL bar space)
+      const offset = Math.max(0, window.innerHeight - vv.height);
+      vvNav.style.bottom = offset + 'px';
+    };
+    window.visualViewport.addEventListener('resize', update);
+    window.visualViewport.addEventListener('scroll', update);
+    update();
+  };
+  const ro3 = new MutationObserver(trackViewport);
+  ro3.observe(document.body, {childList:true, subtree:true});
+  setTimeout(trackViewport, 1500);
+  setTimeout(trackViewport, 3000);
+
   // -------- bottom nav: force natural height (inline React style overrides CSS) --------
   const fixNav = () => {
     const navBtn = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Explore');
