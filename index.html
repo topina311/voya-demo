@@ -914,72 +914,26 @@ a();new MutationObserver(a).observe(document.body,{childList:true,subtree:true})
   window.addEventListener('scroll', pinSearch, {passive:true});
   setTimeout(pinSearch, 1500);
 
-  // -------- bottom nav: ride the browser URL bar (visualViewport) --------
 
-
-  // -------- bottom nav: force natural height (inline React style overrides CSS) --------
-  const fixNav = () => {
+  // -------- bottom nav: plain fixed bottom:0. Chrome Android moves fixed-bottom
+  // elements above its URL bar automatically when the bar shows; when it hides
+  // the nav rests on the screen bottom edge. No JS math, no fighting.
+  const keepNavFixed = () => {
     const navBtn = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Explore');
     if (!navBtn) return;
     let nav = navBtn;
     while (nav) { const cs = getComputedStyle(nav); if (cs.position === 'fixed' && cs.bottom === '0px') break; nav = nav.parentElement; }
-    if (!nav || nav.dataset.vygNavFixed) return;
-    nav.style.height = 'auto';
-    nav.style.minHeight = '0px';
-    nav.style.maxHeight = 'none';
-    nav.style.overflow = 'visible';
-    nav.style.background = '#ffffff';
-    nav.style.borderTop = '1px solid #E5E7EB';
-    nav.dataset.vygNavFixed = '1';
-    // inner row: prevent stretch from flex column parent
-    const inner = [...nav.children].find(c => c.tagName === 'DIV');
-    if (inner) { inner.style.height = 'auto'; inner.style.minHeight = '0px'; inner.style.alignSelf = 'flex-start'; inner.style.padding = '8px 0 calc(8px + env(safe-area-inset-bottom, 0px))'; }
-    // also neutralize the flex column stretch on the nav itself
-    nav.style.alignSelf = 'flex-start';
+    if (!nav || nav.dataset.vygFixed) return;
+    nav.style.position = 'fixed';
+    nav.style.bottom = '0';
+    nav.style.top = 'auto';
+    nav.style.zIndex = '50';
+    nav.dataset.vygFixed = '1';
   };
-  const ro2 = new MutationObserver(fixNav);
-  ro2.observe(document.body, {childList:true, subtree:true});
-  setTimeout(fixNav, 1500);
-  setTimeout(fixNav, 3000);
-
-  // -------- bottom nav: pure visualViewport tracking (single mechanism) --------
-  // URL bar visible -> vv.height < innerHeight -> nav rises above it
-  // URL bar hidden  -> vv.height == innerHeight -> nav sticks to screen bottom edge
-  let vvNav = null, vvLast = null;
-  const vvGetNav = () => {
-    const navBtn = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Explore');
-    if (!navBtn) return null;
-    let nav = navBtn;
-    while (nav) { const cs = getComputedStyle(nav); if (cs.position === 'fixed' && cs.bottom === '0px') break; nav = nav.parentElement; }
-    return nav;
-  };
-  const vvApply = () => {
-    if (!window.visualViewport) return;
-    const nav = vvGetNav();
-    if (!nav) return;
-    const offset = Math.max(0, Math.round(window.innerHeight - window.visualViewport.height));
-    if (offset !== vvLast) {
-      nav.style.bottom = offset + 'px';
-      nav.style.top = 'auto';
-      vvLast = offset;
-    }
-  };
-  const vvHook = () => {
-    if (!vvNav) {
-      vvNav = vvGetNav();
-      if (!vvNav) return;
-      window.visualViewport.addEventListener('resize', vvApply);
-      window.visualViewport.addEventListener('scroll', vvApply);
-      window.addEventListener('resize', vvApply);
-      window.addEventListener('orientationchange', vvApply);
-    }
-    vvApply();
-  };
-  const ro3 = new MutationObserver(vvHook);
+  const ro3 = new MutationObserver(keepNavFixed);
   ro3.observe(document.body, {childList:true, subtree:true});
-  setInterval(vvApply, 300); // gentle poll: catches browsers that fire no events
-  setTimeout(vvHook, 1200);
-  setTimeout(vvHook, 2500);
+  setTimeout(keepNavFixed, 1000);
+  setTimeout(keepNavFixed, 2000);
 
   // -------- desktop: turn horizontal card rows into wrapping grids --------
   const apply = () => {
