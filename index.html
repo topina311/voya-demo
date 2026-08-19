@@ -915,36 +915,29 @@ a();new MutationObserver(a).observe(document.body,{childList:true,subtree:true})
   setTimeout(pinSearch, 1500);
 
   // -------- bottom nav: ride the browser URL bar (visualViewport) --------
-  let vvNav = null;
-  const trackViewport = () => {
-    if (!window.visualViewport) return;
+  // -------- bottom nav: ride the URL bar via CSS (browser-native, no JS fighting) --------
+  // position:fixed + bottom:0 with interactive-widget=resizes-content (in viewport meta)
+  // is the spec-compliant way; iOS/Chrome handle the rest. We only re-assert bottom:0
+  // once in case React re-renders wiped it.
+  let vvNavFixed = false;
+  const fixNavBottom = () => {
     const navBtn = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Explore');
     if (!navBtn) return;
     let nav = navBtn;
     while (nav) { const cs = getComputedStyle(nav); if (cs.position === 'fixed' && cs.bottom === '0px') break; nav = nav.parentElement; }
     if (!nav) return;
-    vvNav = nav;
-    const update = () => {
-      if (!vvNav) return;
-      const vv = window.visualViewport;
-      // bottom offset = layout viewport height - visual viewport height (URL bar space)
-      const offset = Math.max(0, window.innerHeight - vv.height);
-      vvNav.style.bottom = offset + 'px';
-    };
-    window.visualViewport.addEventListener('resize', update);
-    window.visualViewport.addEventListener('scroll', update);
-    window.addEventListener('resize', update);
-    window.addEventListener('scroll', update, {passive:true});
-    // rAF fallback: keep checking (covers browsers that fire neither event)
-    let rafId = null;
-    const loop = () => { update(); rafId = requestAnimationFrame(loop); };
-    if (!rafId) rafId = requestAnimationFrame(loop);
-    update();
+    if (!vvNavFixed) {
+      // ensure the browser-native behavior: bottom pinned to visual viewport bottom
+      nav.style.bottom = '0px';
+      nav.style.top = 'auto';
+      nav.style.height = 'auto';
+      vvNavFixed = true;
+    }
   };
-  const ro3 = new MutationObserver(trackViewport);
+  const ro3 = new MutationObserver(fixNavBottom);
   ro3.observe(document.body, {childList:true, subtree:true});
-  setTimeout(trackViewport, 1500);
-  setTimeout(trackViewport, 3000);
+  setTimeout(fixNavBottom, 1200);
+  setTimeout(fixNavBottom, 2500);
 
   // -------- bottom nav: force natural height (inline React style overrides CSS) --------
   const fixNav = () => {
