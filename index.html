@@ -994,5 +994,51 @@ a();new MutationObserver(a).observe(document.body,{childList:true,subtree:true})
   setTimeout(apply, 2500);
 })();
 </script>
-</body>
+<script id="voya-gyg-header">
+(function(){
+  // GYG-style header: logo left + icons right (heart, cart, menu w/ badge) + headline above search pill
+  var INJ = 'voya-gyg-hdr';
+  function inject(){
+    if (document.getElementById(INJ)) return;
+    var pillWrap = null;
+    // find the search pill container (rounded full, contains "Find places and things to do")
+    var all = document.querySelectorAll('div');
+    for (var i=0;i<all.length;i++){
+      var d = all[i];
+      if (!d.querySelector) continue;
+      var t = d.textContent || '';
+      if (t.indexOf('Find places and things to do') !== -1 && (d.style.borderRadius || '').indexOf('9999') !== -1 && d.children.length > 1){
+        // climb to the fixed white bar that hosts it
+        var p = d.parentElement;
+        while (p && getComputedStyle(p).position !== 'fixed') p = p.parentElement;
+        if (p) { pillWrap = p; break; }
+      }
+    }
+    if (!pillWrap) return;
+    var bar = document.createElement('div');
+    bar.id = INJ;
+    bar.style.cssText = 'padding:8px 16px 2px;background:#fff;';
+    var ink = '#222222', pink = '#FF385C';
+    bar.innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:space-between;padding:2px 2px 10px">' +
+        '<div style="font-size:22px;font-weight:800;letter-spacing:-0.5px;color:'+pink+';line-height:1">Voya<span style="color:'+ink+'">.</span></div>' +
+        '<div style="display:flex;align-items:center;gap:16px">' +
+          '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="'+ink+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>' +
+          '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="'+ink+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>' +
+          '<div style="position:relative">' +
+            '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="'+ink+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>' +
+            '<div style="position:absolute;top:-4px;right:-6px;min-width:16px;height:16px;border-radius:8px;background:#E0354B;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px">1</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<h1 style="font-size:24px;font-weight:700;color:'+ink+';line-height:1.25;margin:2px 2px 12px;letter-spacing:-0.3px">Experiences worth<br>travelling for</h1>';
+    // insert at top of the fixed white bar
+    pillWrap.insertBefore(bar, pillWrap.firstChild);
+  }
+  var mo = new MutationObserver(inject);
+  mo.observe(document.body, {childList:true, subtree:true});
+  setTimeout(inject, 800);
+  setTimeout(inject, 1800);
+})();
+</script></body>
 </html>
