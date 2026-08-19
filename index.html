@@ -915,25 +915,6 @@ a();new MutationObserver(a).observe(document.body,{childList:true,subtree:true})
   setTimeout(pinSearch, 1500);
 
 
-  // -------- bottom nav: plain fixed bottom:0. Chrome Android moves fixed-bottom
-  // elements above its URL bar automatically when the bar shows; when it hides
-  // the nav rests on the screen bottom edge. No JS math, no fighting.
-  const keepNavFixed = () => {
-    const navBtn = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Explore');
-    if (!navBtn) return;
-    let nav = navBtn;
-    while (nav) { const cs = getComputedStyle(nav); if (cs.position === 'fixed' && cs.bottom === '0px') break; nav = nav.parentElement; }
-    if (!nav || nav.dataset.vygFixed) return;
-    nav.style.position = 'fixed';
-    nav.style.bottom = '0';
-    nav.style.top = 'auto';
-    nav.style.zIndex = '50';
-    nav.dataset.vygFixed = '1';
-  };
-  const ro3 = new MutationObserver(keepNavFixed);
-  ro3.observe(document.body, {childList:true, subtree:true});
-  setTimeout(keepNavFixed, 1000);
-  setTimeout(keepNavFixed, 2000);
 
   // -------- desktop: turn horizontal card rows into wrapping grids --------
   const apply = () => {
