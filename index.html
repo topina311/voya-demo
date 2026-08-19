@@ -795,6 +795,16 @@ a();new MutationObserver(a).observe(document.body,{childList:true,subtree:true})
     }
     /* keep the real app surface white */
     .iphone-app-area { background: #F7F7F8 !important; }
+    /* EXEMPT the fixed bottom nav from the 100dvh min-height leak (mobile + desktop) */
+    .iphone-app-area > div > div[style*="position: fixed"],
+    .iphone-app-area > div > div[style*="position:fixed"],
+    .iphone-app-area > div > div > div[style*="position: fixed"],
+    .iphone-app-area > div > div > div[style*="position:fixed"] {
+      height: auto !important;
+      min-height: 0 !important;
+      max-height: none !important;
+      flex: none !important;
+    }
     /* 3. sticky search bar: sit at the very top on mobile (safe-area aware) */
     .vyg-search-pill { box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 14px rgba(0,0,0,.08) !important; }
     /* 4. desktop layout (GYG style) */
