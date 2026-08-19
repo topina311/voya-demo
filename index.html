@@ -636,5 +636,245 @@ lucide-react/dist/esm/lucide-react.js:
 (()=>{const a=()=>{document.querySelectorAll('.hide-scroll').forEach(el=>{const p=getComputedStyle(el).paddingBottom;if(parseInt(p)<96){el.style.paddingBottom='96px'}})};
 a();new MutationObserver(a).observe(document.body,{childList:true,subtree:true})})();
 </script>
+<script id="voya-gyg-enhancer">
+(() => {
+  // ---------- BADGE + PRICE ANCHORING MAP (per tour name) ----------
+  const badges = {
+    "Similan Islands": {t:"Top pick", c:"#FF385C"},
+    "Richelieu Rock":  {t:"PADI certified", c:"#222222"},
+    "Shark Point":     {t:"Small group", c:"#0F766E"},
+    "Coral Garden":    {t:"Beginner friendly", c:"#0F766E"},
+    "King Cruiser":    {t:"Wreck dive", c:"#7C3AED"},
+    "Phi Phi Islands": {t:"#1 best-selling", c:"#FF385C"},
+    "James Bond Island":{t:"Likely to sell out", c:"#DC2626"},
+    "Coral Island":    {t:"Family pick", c:"#0F766E"},
+    "Racha Island":    {t:"Top pick", c:"#FF385C"},
+    "Surin Islands":   {t:"Seasonal · book early", c:"#DC2626"},
+    "Yona Beach Club": {t:"Trending now", c:"#FF385C"},
+    "Maya Bay":        {t:"Top pick", c:"#FF385C"},
+    "Simon Cabaret":   {t:"Free cancellation", c:"#059669"},
+    "Fantasea Show":   {t:"Kids love it", c:"#7C3AED"},
+    "Fire Show":       {t:"Free cancellation", c:"#059669"},
+    "Siam Niramit":    {t:"Cultural icon", c:"#7C3AED"},
+    "Muay Thai Night": {t:"Live fights", c:"#DC2626"}
+  };
+  const anchorMult = 1.33; // old price = current * 1.33 (anchoring)
+
+  const style = document.createElement('style');
+  style.textContent = `
+    .vyg-badge{position:absolute;top:12px;left:12px;z-index:5;color:#fff;font-size:10.5px;font-weight:700;letter-spacing:.3px;padding:4px 9px;border-radius:999px;box-shadow:0 2px 8px rgba(0,0,0,.25);max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .vyg-old{text-decoration:line-through;color:#9CA3AF;font-size:11px;font-weight:500;margin-right:4px}
+    .vyg-booked{position:absolute;bottom:10px;left:12px;z-index:5;color:#fff;font-size:10px;font-weight:600;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);padding:3px 8px;border-radius:999px}
+    .vyg-stick{bottom:0;left:0;right:0}
+  `;
+  document.head.appendChild(style);
+
+  // ---------- NAV AUTO HIDE (scroll down hides, scroll up shows) ----------
+  let navEl = null, lastY = 0, hidden = false;
+  const findNav = () => {
+    if (navEl) return navEl;
+    const all = [...document.querySelectorAll('div')];
+    navEl = all.find(d => { const cs = getComputedStyle(d); return cs.position === 'fixed' && cs.bottom === '0px' && d.offsetHeight > 40 && d.offsetHeight < 120 && d.children.length >= 4; });
+    if (navEl) { navEl.style.transition = 'transform .25s ease'; navEl.style.willChange = 'transform'; }
+    return navEl;
+  };
+
+  const applyNav = () => {
+    const n = findNav();
+    if (!n) return;
+    // find active scroll container
+    const scroller = [...document.querySelectorAll('.hide-scroll')].find(s => s.scrollHeight > s.clientHeight + 60 && s.getBoundingClientRect().height > 300) || null;
+    if (!scroller) return;
+    const y = scroller.scrollTop;
+    const delta = y - lastY;
+    if (y < 40) { if (hidden) { n.style.transform = 'translateY(0)'; hidden = false; } lastY = y; return; }
+    if (delta > 6 && !hidden) { n.style.transform = 'translateY(105%)'; hidden = true; }
+    else if (delta < -6 && hidden) { n.style.transform = 'translateY(0)'; hidden = false; }
+    lastY = y;
+  };
+
+  document.addEventListener('scroll', applyNav, {passive:true, capture:true});
+
+  // ---------- BADGES + OLD PRICE on cards ----------
+  const apply = () => {
+    // find all tour cards in search list: containers with role=button + img + price text "฿"
+    const cards = [...document.querySelectorAll('div[role="button"]')].filter(c => {
+      const t = c.textContent || '';
+      return t.includes('฿') && c.querySelector('img') && c.querySelector('img').alt;
+    });
+    cards.forEach(card => {
+      if (card.dataset.vygDone) return;
+      const img = card.querySelector('img');
+      const name = img.alt;
+      const b = badges[name];
+      const imgWrap = card.querySelector('div') && card.querySelector('div').style && getComputedStyle(card.querySelector('div')).position === 'relative' ? card.querySelector('div') : null;
+      // find the image's relative parent (has height 240)
+      let holder = img.parentElement;
+      while (holder && getComputedStyle(holder).position !== 'relative' && holder !== card) holder = holder.parentElement;
+      if (b && holder) {
+        const el = document.createElement('span');
+        el.className = 'vyg-badge';
+        el.textContent = b.t;
+        el.style.background = b.c;
+        holder.appendChild(el);
+        card.dataset.vygDone = '1';
+      }
+      // old price: find the price div (contains ฿), add strikethrough sibling
+      const priceEls = [...card.querySelectorAll('div')].filter(d => d.textContent.includes('฿') && d.children.length === 0 && d.textContent.trim().length < 12);
+      if (priceEls.length && !card.dataset.vygPrice) {
+        const pe = priceEls[priceEls.length - 1];
+        const m = pe.textContent.match(/([\d,]+)/);
+        if (m) {
+          const cur = parseInt(m[1].replace(/,/g,''), 10);
+          const old = Math.round(cur * anchorMult / 50) * 50;
+          const oldEl = document.createElement('span');
+          oldEl.className = 'vyg-old';
+          oldEl.textContent = '฿' + old.toLocaleString();
+          const parent = pe.parentElement;
+          if (parent && parent.children.length <= 2) {
+            parent.insertBefore(oldEl, pe);
+            card.dataset.vygPrice = '1';
+          }
+        }
+      }
+    });
+    // "Booked X today" chips on moments feed cards
+    document.querySelectorAll('img[alt]').forEach(img => {
+      if (img.dataset.vygBooked || !img.alt) return;
+      const n = img.alt;
+      if (badges[n] && img.parentElement && img.parentElement.style && getComputedStyle(img.parentElement).position === 'relative') {
+        const holder = img.parentElement;
+        if (holder.querySelector('.vyg-booked')) return;
+        const counts = {"Phi Phi Islands": 12, "James Bond Island": 9, "Maya Bay": 11, "Similan Islands": 7, "Yona Beach Club": 15, "Fantasea Show": 8};
+        if (counts[n]) {
+          const el = document.createElement('span');
+          el.className = 'vyg-booked';
+          el.textContent = 'Booked ' + counts[n] + '× today';
+          holder.appendChild(el);
+          img.dataset.vygBooked = '1';
+        }
+      }
+    });
+  };
+
+  const ro = new MutationObserver(apply);
+  ro.observe(document.body, {childList:true, subtree:true});
+  setInterval(apply, 1500);
+  setTimeout(apply, 800);
+})();
+</script>
+<script id="voya-desktop-responsive">
+(() => {
+  const style = document.createElement('style');
+  style.textContent = `
+    /* Desktop: make the app use real screen space (GYG-style wide layout) */
+    @media (min-width: 768px) {
+      html, body { background: #F7F7F8 !important; }
+      /* strip iPhone chrome but KEEP the app surface on desktop */
+      .iphone-btn, .iphone-btn-action, .iphone-btn-vol-up, .iphone-btn-vol-down, .iphone-btn-power, .mock-status-bar {
+        display: none !important;
+      }
+      .iphone-frame {
+        width: 100% !important;
+        max-width: 1180px !important;
+        height: auto !important;
+        min-height: 100vh !important;
+        border-radius: 0 !important;
+        background: #fff !important;
+      }
+      .iphone-screen-outer {
+        width: 100% !important;
+        height: auto !important;
+        min-height: 100vh !important;
+        border-radius: 0 !important;
+        background: #fff !important;
+      }
+      .iphone-app-area {
+        width: 100% !important;
+        height: auto !important;
+        min-height: 100vh !important;
+      }
+      /* widen the phone-frame container */
+      body > #root, body > div:first-child {
+        max-width: 1180px !important;
+        margin: 0 auto !important;
+        box-shadow: none !important;
+      }
+      /* main app column -> wider */
+      [style*="max-width:420"], [style*="maxWidth:420"],
+      [style*="max-width:430"], [style*="maxWidth:430"] {
+        max-width: 1180px !important;
+        width: 100% !important;
+      }
+      /* feed cards: 2-column grid on desktop */
+      [class*="feed"], [style*="flex-direction:column"] {
+      }
+      /* bottom nav: centered, not stretched */
+      div { }
+    }
+  `;
+  document.head.appendChild(style);
+
+  const apply = () => {
+    const w = window.innerWidth;
+    if (w < 768) return;
+
+    // 1. widen every maxWidth 420/430 container
+    const toWiden = [...document.querySelectorAll('div')].filter(d => {
+      const st = d.style;
+      return (st.maxWidth === '420px' || st.maxWidth === '430px') ||
+             (st.maxWidth === '420' || st.maxWidth === '430');
+    });
+    toWiden.forEach(d => { d.style.maxWidth = '1180px'; d.style.width = '100%'; });
+
+    // 2. main scroll area -> allow full width
+    document.querySelectorAll('.hide-scroll').forEach(s => { s.style.maxWidth = '1180px'; s.style.margin = '0 auto'; });
+
+    // 3. bottom nav: keep it centered with rounded top (max 480)
+    const nav = [...document.querySelectorAll('div')].find(d => {
+      const cs = getComputedStyle(d);
+      return cs.position === 'fixed' && cs.bottom === '0px' && d.offsetHeight > 40 && d.offsetHeight < 120;
+    });
+    if (nav) {
+      nav.style.left = '50%';
+      nav.style.right = 'auto';
+      nav.style.transform = 'translateX(-50%)';
+      nav.style.width = '100%';
+      nav.style.maxWidth = '480px';
+      nav.style.borderRadius = '18px 18px 0 0';
+      nav.style.boxShadow = '0 -4px 24px rgba(0,0,0,.08)';
+    }
+
+    // 4. hero/feed cards -> grid 2 cols on desktop (cards are 78vh tall full-width)
+    // find feed card container (contains multiple cards with img inside a scrollable div)
+    const scrollables = [...document.querySelectorAll('.hide-scroll')].filter(s => s.scrollHeight > s.clientHeight * 1.5);
+    scrollables.forEach(sc => {
+      const kids = [...sc.children].filter(c => c.tagName === 'DIV');
+      if (kids.length >= 3 && kids.every(k => k.querySelector('img') && k.style && (k.style.height === '78vh' || (k.style.height||'').includes('vh')))) {
+        sc.style.display = 'grid';
+        sc.style.gridTemplateColumns = 'repeat(2, 1fr)';
+        sc.style.gap = '12px';
+        sc.style.padding = '12px';
+        kids.forEach(k => { if (k.style) { k.style.height = '58vh'; k.style.maxHeight = '560px'; k.style.borderRadius = '18px'; } });
+      }
+    });
+
+    // 5. category horizontal rows (Diving Destinations etc.) -> wider cards
+    document.querySelectorAll('[style*="overflow-x"], [style*="overflowX"]').forEach(row => {
+      if (row.scrollWidth > row.clientWidth + 40 && row.children.length >= 2) {
+        row.style.flexWrap = 'wrap';
+        row.style.overflowX = 'visible';
+        [...row.children].forEach(c => { if (c.style) c.style.flex = '1 1 240px'; });
+      }
+    });
+  };
+
+  const ro = new MutationObserver(apply);
+  ro.observe(document.body, {childList:true, subtree:true});
+  window.addEventListener('resize', apply);
+  setTimeout(apply, 1000);
+  setTimeout(apply, 3000);
+})();
+</script>
 </body>
 </html>
