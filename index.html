@@ -560,5 +560,55 @@ lucide-react/dist/esm/lucide-react.js:
 */
 
 </script>
-</body>
+<script id="voya-scroll-fix">
+(function(){
+  // ===== SCROLL FIX (mobile URL bar collapse) =====
+  // The app shell pinned everything to 100vh with inner .hide-scroll containers,
+  // so the document never scrolled and the mobile browser never hid its URL bar.
+  // Convert to natural document flow: browser hides the address bar on scroll (like GYG).
+  var st = document.createElement('style');
+  st.textContent = [
+    'html, body { height: auto !important; min-height: 100dvh !important; overflow-y: auto !important; overflow-x: hidden !important; background: #F7F7F8 !important; margin: 0 !important; }',
+    /* strip mockup chrome (fake status bar, side buttons, phone frame) */
+    '.mock-status-bar, .iphone-btn, .iphone-btn-action, .iphone-btn-vol-up, .iphone-btn-vol-down, .iphone-btn-power { display: none !important; }',
+    '.phone-mockup-bg { min-height: 100dvh !important; padding: 0 !important; align-items: stretch !important; display: block !important; background: #F7F7F8 !important; }',
+    '.iphone-frame { width: 100% !important; height: auto !important; min-height: 100dvh !important; border-radius: 0 !important; box-shadow: none !important; padding: 0 !important; }',
+    '.iphone-screen-outer, .iphone-app-area, .iphone-app-area > div, .iphone-app-area > div > div { height: auto !important; min-height: 0 !important; max-width: none !important; width: 100% !important; border-radius: 0 !important; overflow: visible !important; }',
+    '.iphone-app-area { background: #F7F7F8 !important; }',
+    /* inner scroll containers -> natural document flow (inline React styles CANNOT beat !important) */
+    '.hide-scroll { height: auto !important; min-height: 0 !important; overflow: visible !important; padding-bottom: 90px !important; }',
+    '.hide-scroll[style*="overflow-y"] { height: auto !important; min-height: 0 !important; overflow: visible !important; }',
+    '.hide-scroll > div { margin-top: 0 !important; }',
+    /* bottom nav: fixed to viewport bottom, white bar */
+    'div[style*="position: absolute"][style*="bottom: 0"][style*="left: 0"][style*="right: 0"][style*="display: flex"][style*="justify-content: center"] { position: fixed !important; left: 0 !important; right: 0 !important; bottom: 0 !important; top: auto !important; background: #ffffff !important; z-index: 999 !important; }',
+    'div[style*="position: absolute"][style*="bottom: 0"][style*="left: 0"][style*="right: 0"][style*="display: flex"][style*="justify-content: center"] > div { background: #ffffff !important; }',
+    /* keep modal bottom sheets (78vh) inside the app */
+    'div[style*="maxHeight: 78vh"] { max-height: 78vh !important; position: absolute !important; }'
+  ].join('\n');
+  document.head.appendChild(st);
+  // keep nav pinned after React re-renders
+  var fixedNav = false;
+  var fixNav = function(){
+    if (fixedNav) return;
+    var all = document.querySelectorAll('div');
+    for (var i=0;i<all.length;i++){
+      var d = all[i];
+      var s = d.getAttribute('style') || '';
+      if (s.indexOf('position: absolute') !== -1 && s.indexOf('bottom: 0') !== -1 && s.indexOf('justify-content: center') !== -1 && d.children.length >= 4){
+        d.style.position = 'fixed';
+        d.style.left = '0';
+        d.style.right = '0';
+        d.style.bottom = '0';
+        d.style.zIndex = '999';
+        fixedNav = true;
+        break;
+      }
+    }
+  };
+  var ro = new MutationObserver(fixNav);
+  ro.observe(document.body, {childList:true, subtree:true});
+  setTimeout(fixNav, 1000);
+  setTimeout(fixNav, 2500);
+})();
+</script></body>
 </html>
