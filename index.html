@@ -785,6 +785,26 @@ a();new MutationObserver(a).observe(document.body,{childList:true,subtree:true})
     @media (max-width: 767px) {
       .hide-scroll { padding: 12px 14px 100px !important; }
       .hide-scroll > div:not([style*="position: fixed"]) { margin-top: 14px !important; }
+      /* card rows must NOT stretch vertically - natural heights like the original prototype */
+      .hide-scroll > div { align-items: flex-start !important; }
+      .hide-scroll > div > div { height: auto !important; align-items: flex-start !important; }
+      .hide-scroll > div > div > div { height: auto !important; }
+      /* section containers + card rows: no stretch, natural height */
+      .hide-scroll > div > div > div > div { height: auto !important; }
+      /* the horizontal card scroller rows carry a React padding-bottom:96px (leftover from the old
+         app-shell layout) -> creates huge white gaps. Shrink to normal. */
+      .hide-scroll > div > div > div > div > div { padding-bottom: 8px !important; }
+      .hide-scroll > div > div > div > div[style*="overflow-x"] { padding-bottom: 8px !important; }
+      .hide-scroll > div > div > div > div > div[style*="overflow-x"] { padding-bottom: 8px !important; }
+      .hide-scroll div[style*="overflow-x"] { padding-bottom: 8px !important; }
+      /* kill the 100dvh min-height leak down the whole feed: sections/rows/cards get natural heights */
+      .hide-scroll > div > div,
+      .hide-scroll > div > div > div,
+      .hide-scroll > div > div > div > div {
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+      }
       /* feed hero cards: reduce 78vh full-screen to a compact card on mobile */
       div[style*="78vh"], div[style*="78vh"] { height: auto !important; min-height: 420px !important; max-height: 480px !important; }
       .hide-scroll > div > div > div > div { }
@@ -883,6 +903,31 @@ a();new MutationObserver(a).observe(document.body,{childList:true,subtree:true})
     }
   `;
   document.head.appendChild(style);
+
+  // -------- kill leftover 100dvh stretch in card rows (iOS mobile) --------
+  const fixFeedHeights = () => {
+    if (innerWidth > 767) return;
+    const scrollers = document.querySelectorAll('.hide-scroll div[style*="overflow-x"]');
+    scrollers.forEach(row => {
+      row.style.setProperty('height', 'auto', 'important');
+      row.style.setProperty('min-height', '0', 'important');
+      row.style.setProperty('max-height', 'none', 'important');
+      row.style.setProperty('align-items', 'flex-start', 'important');
+      Array.from(row.children).forEach(card => {
+        const cs = getComputedStyle(card);
+        // only shrink cards that were stretched beyond their natural content
+        if (parseFloat(cs.height) > 480) {
+          card.style.height = 'auto';
+          card.style.minHeight = '0';
+          card.style.maxHeight = 'none';
+        }
+      });
+    });
+  };
+  const roFeed = new MutationObserver(fixFeedHeights);
+  roFeed.observe(document.body, {childList:true, subtree:true});
+  setTimeout(fixFeedHeights, 1000);
+  setTimeout(fixFeedHeights, 2500);
 
   // -------- search bar: pin to top on scroll (robust, both mobile & desktop) --------
   let pinned = false;
