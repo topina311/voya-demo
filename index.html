@@ -797,6 +797,11 @@ a();new MutationObserver(a).observe(document.body,{childList:true,subtree:true})
       .hide-scroll > div > div > div > div[style*="overflow-x"] { padding-bottom: 8px !important; }
       .hide-scroll > div > div > div > div > div[style*="overflow-x"] { padding-bottom: 8px !important; }
       .hide-scroll div[style*="overflow-x"] { padding-bottom: 8px !important; }
+      /* normalize section gaps: React inline margin-bottom:28px + our 14px top margin stacked
+         made inter-section gaps ~60-80px. Keep a normal ~16px rhythm. */
+      .hide-scroll > div > div { margin-bottom: 16px !important; }
+      .hide-scroll > div:not([style*="position: fixed"]) { margin-top: 0 !important; }
+      .hide-scroll > div > div > div { margin-bottom: 0 !important; }
       /* kill the 100dvh min-height leak down the whole feed: sections/rows/cards get natural heights */
       .hide-scroll > div > div,
       .hide-scroll > div > div > div,
