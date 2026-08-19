@@ -1,0 +1,14 @@
+{
+  "name": "Voya Phuket Tours",
+  "short_name": "Voya",
+  "description": "Phuket tours - discover, plan and book. Diving, islands and shows.",
+  "start_url": "/voya-demo/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#FF385C",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
