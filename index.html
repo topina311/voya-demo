@@ -1041,7 +1041,7 @@ a();new MutationObserver(a).observe(document.body,{childList:true,subtree:true})
   setTimeout(inject, 1800);
   // force the fixed host bar flush to the very top edge (no gap below browser chrome)
   var st = document.createElement('style');
-  st.textContent = 'div[style*="position: fixed"][style*="top: 0"]{top:0px !important;} .iphone-screen-outer{transform:none !important;} .iphone-frame{transform:none !important;} .phone-mockup-bg{transform:none !important;}';
+  st.textContent = 'div[style*="position: fixed"][style*="top: 0"]{top:0px !important; z-index:999 !important; background:#ffffff !important;} div[style*="position: fixed"][style*="top: 0"] *{background-color:transparent;} div[style*="position: fixed"][style*="top: 0"] > div{background-color:#ffffff !important;} .iphone-screen-outer{transform:none !important;} .iphone-frame{transform:none !important;} .phone-mockup-bg{transform:none !important;}';
   document.head.appendChild(st);
 })();
 </script></body>
