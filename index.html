@@ -996,30 +996,29 @@ a();new MutationObserver(a).observe(document.body,{childList:true,subtree:true})
 </script>
 <script id="voya-gyg-header">
 (function(){
-  // GYG-style header: logo left + icons right (heart, cart, menu w/ badge) + headline above search pill
+  // iOS bug: position:fixed inside a scroll container (.hide-scroll) degrades to absolute.
+  // Fix: inject the header at BODY level (true fixed, no scroll ancestor), then push the
+  // React search bar down below it so nothing overlaps.
   var INJ = 'voya-gyg-hdr';
+  var inited = false;
   function inject(){
     if (document.getElementById(INJ)) return;
-    var pillWrap = null;
-    // find the search pill container (rounded full, contains "Find places and things to do")
+    var pill = null;
     var all = document.querySelectorAll('div');
     for (var i=0;i<all.length;i++){
       var d = all[i];
-      if (!d.querySelector) continue;
-      var t = d.textContent || '';
-      if (t.indexOf('Find places and things to do') !== -1 && (d.style.borderRadius || '').indexOf('9999') !== -1 && d.children.length > 1){
-        // climb to the fixed white bar that hosts it
-        var p = d.parentElement;
-        while (p && getComputedStyle(p).position !== 'fixed') p = p.parentElement;
-        if (p) { pillWrap = p; break; }
-      }
+      if ((d.textContent||'').indexOf('Find places and things to do') !== -1 && (d.style.borderRadius||'').indexOf('9999') !== -1 && d.children.length > 1){ pill = d; break; }
     }
-    if (!pillWrap) return;
-    var bar = document.createElement('div');
-    bar.id = INJ;
-    bar.style.cssText = 'padding:0 16px 2px;background:#fff;';
+    if (!pill) return;
+    // find the React fixed bar that hosts the pill
+    var bar = pill.parentElement;
+    while (bar && getComputedStyle(bar).position !== 'fixed') bar = bar.parentElement;
+    if (!bar) return;
     var ink = '#222222', pink = '#FF385C';
-    bar.innerHTML =
+    var hdr = document.createElement('div');
+    hdr.id = INJ;
+    hdr.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#ffffff;padding:10px 16px 12px;';
+    hdr.innerHTML =
       '<div style="display:flex;align-items:center;justify-content:space-between;padding:2px 2px 10px">' +
         '<div style="font-size:22px;font-weight:800;letter-spacing:-0.5px;color:'+pink+';line-height:1">Voya<span style="color:'+ink+'">.</span></div>' +
         '<div style="display:flex;align-items:center;gap:16px">' +
@@ -1031,18 +1030,29 @@ a();new MutationObserver(a).observe(document.body,{childList:true,subtree:true})
           '</div>' +
         '</div>' +
       '</div>' +
-      '<h1 style="font-size:24px;font-weight:700;color:'+ink+';line-height:1.25;margin:2px 2px 12px;letter-spacing:-0.3px">Experiences worth<br>travelling for</h1>';
-    // insert at top of the fixed white bar
-    pillWrap.insertBefore(bar, pillWrap.firstChild);
+      '<h1 style="font-size:24px;font-weight:700;color:'+ink+';line-height:1.25;margin:0 2px 0;letter-spacing:-0.3px">Experiences worth<br>travelling for</h1>';
+    document.body.appendChild(hdr);
+    // push the React bar down below our fixed header (approx header height)
+    var HDR_H = 120; // fixed header height (logo row + headline)
+    bar.style.top = HDR_H + 'px';
+    bar.style.marginTop = '0px';
+    // CSS !important wins over React inline styles: keep the search bar below the header
+    // even after re-renders.
+    var st = document.createElement('style');
+    st.textContent =
+      '#'+INJ+' { position:fixed !important; top:0 !important; z-index:9999 !important; }' +
+      '.hide-scroll > div[style*="position: fixed"] { top:' + HDR_H + 'px !important; }' +
+      '.hide-scroll { padding-top:' + HDR_H + 'px !important; }';
+    document.head.appendChild(st);
+    // give content a matching top offset so nothing is hidden (the home scroll container already has paddingBottom; add top padding to hide-scroll)
+    var scroll = bar.parentElement; // .hide-scroll
+    if (scroll) { scroll.style.paddingTop = HDR_H + 'px'; }
+    inited = true;
   }
   var mo = new MutationObserver(inject);
   mo.observe(document.body, {childList:true, subtree:true});
   setTimeout(inject, 800);
   setTimeout(inject, 1800);
-  // force the fixed host bar flush to the very top edge (no gap below browser chrome)
-  var st = document.createElement('style');
-  st.textContent = 'div[style*="position: fixed"][style*="top: 0"]{top:0px !important; margin-top:0px !important; z-index:9999 !important; background:#ffffff !important;} div[style*="position: fixed"][style*="top: 0"] *{background-color:transparent;} div[style*="position: fixed"][style*="top: 0"] > div{background-color:#ffffff !important;} .iphone-app-area > div > div:not([style*="position: fixed"]){z-index:1 !important;} .iphone-app-area img{position:relative; z-index:0 !important;} .hide-scroll > div > div{position:relative; z-index:0 !important;} .iphone-screen-outer{transform:none !important;} .iphone-frame{transform:none !important;} .phone-mockup-bg{transform:none !important;}';
-  document.head.appendChild(st);
 })();
 </script></body>
 </html>
