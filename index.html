@@ -1040,7 +1040,7 @@ a();new MutationObserver(a).observe(document.body,{childList:true,subtree:true})
     // even after re-renders.
     var st = document.createElement('style');
     st.textContent =
-      '#'+INJ+' { position:fixed !important; top:0 !important; z-index:9999 !important; }' +
+      '#'+INJ+' { position:fixed !important; top:0 !important; z-index:9999 !important; border-bottom:1px solid rgba(0,0,0,0.06); }' +
       '.hide-scroll > div[style*="position: fixed"] { top:' + HDR_H + 'px !important; }' +
       '.hide-scroll { padding-top:' + HDR_H + 'px !important; }';
     document.head.appendChild(st);
