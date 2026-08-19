@@ -1084,7 +1084,8 @@ a();new MutationObserver(a).observe(document.body,{childList:true,subtree:true})
     st.textContent =
       '#'+INJ+' { position:fixed !important; top:0 !important; z-index:9999 !important; border-bottom:1px solid rgba(0,0,0,0.06); }' +
       '.hide-scroll > div[style*="position: fixed"] { top:' + HDR_H + 'px !important; }' +
-      '.hide-scroll { padding-top:' + HDR_H + 'px !important; }' +
+      '.hide-scroll[style*="overflow-y"] { padding-top:' + HDR_H + 'px !important; }' +
+      '.hide-scroll:not([style*="overflow-y"]) > div[style*="overflow-x"] { padding-top: 4px !important; }' +
       'div[style*="border-radius: 9999px"] { border-color:#D1D1D6 !important; border-width:1.5px !important; box-shadow:0 1px 2px rgba(0,0,0,0.04), 0 4px 14px rgba(0,0,0,0.08) !important; }';
     document.head.appendChild(st);
     // give content a matching top offset so nothing is hidden (the home scroll container already has paddingBottom; add top padding to hide-scroll)
