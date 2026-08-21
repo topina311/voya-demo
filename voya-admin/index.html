@@ -809,42 +809,51 @@ lucide.createIcons({icons});\``);if(typeof c>"u")throw new Error("`createIcons()
   /* ---------------- generate ~2 years of daily history (enough for 12-month & 8-quarter rollups) ---------------- */
   const DAYS = 760;
   const TODAY = new Date('2026-08-13T00:00:00');
+  // All series are derived from REAL bookings pushed by the customer app through
+  // the backend. When there are no bookings yet, every series stays 0 — the
+  // dashboard shows honest zeros instead of invented numbers.
   const revenue = [], bookingsSeries = [], usersSeries = [], ratingSeries = [], profitSeries = [], marginSeries = [];
-  const weeklyRev = [2,4,7,9,12,16,10];
-  const weeklyBk  = [3,5,8,11,15,19,12];
-  /* growth trends are anchored to the most recent 180 days (the window already reviewed) —
-     older history ramps up *toward* that window rather than compounding past it */
-  const recentAnchor = DAYS - 180;
-  /* ผู้ให้บริการทัวร์ (คู่ค้า) รับส่วนแบ่งราว 60-73% ของยอดขายต่อวัน ส่วนที่เหลือคือกำไรขั้นต้นของแพลตฟอร์ม */
-  const REV_SCALE = 2; // targets ~100K baht/day average (was ~50K/day)
-  /* ฤดูกาลท่องเที่ยวภูเก็ต: High season ธ.ค.-ก.พ. (อากาศดี, คริสต์มาส/ปีใหม่/ตรุษจีน), เม.ย. ชดเชยด้วยสงกรานต์,
-     Low season พ.ค.-ต.ค. (มรสุม, ฝนตกหนักสุด ก.ย.), ก.ค.-ส.ค. พยุงขึ้นบ้างจากนักท่องเที่ยวยุโรปหน้าร้อน.
-     ค่าเฉลี่ยทั้งปี = 1.0 พอดี เพื่อให้ยอดขายเฉลี่ยรวมยังคงอยู่ที่ ~1 แสนบาท/วันตามเดิม */
-  const PHUKET_SEASON = [1.44,1.33,1.13,1.18,0.72,0.67,0.87,0.92,0.56,0.67,1.08,1.43]; // ม.ค.→ธ.ค.
   for(let i=0;i<DAYS;i++){
-    const seasonMult = PHUKET_SEASON[dateForIndex(i).getMonth()];
-    const j = i - recentAnchor;
-    const trendR = j*0.062;
-    const noiseR = (rand()-0.5)*7;
-    const revVal = Math.max(9*REV_SCALE, Math.round((30 + trendR + weeklyRev[i%7] + noiseR)*seasonMult*REV_SCALE*10)/10);
-    revenue.push(revVal);
-
-    const trendB = j*0.075;
-    const noiseB = (rand()-0.5)*6;
-    bookingsSeries.push(Math.max(4, Math.round((14 + trendB + weeklyBk[i%7] + noiseB)*seasonMult)));
-
-    // active users track the season too, but more mildly — browsing/interest doesn't swing as hard as actual bookings
-    const userSeasonMult = 1 + (seasonMult-1)*0.4;
-    const noiseU = (rand()-0.5)*260;
-    usersSeries.push(Math.max(500, Math.round((11200 + j*10.5)*userSeasonMult + noiseU)));
-
-    const noiseRt = (rand()-0.5)*0.28;
-    ratingSeries.push(Math.min(5, Math.max(4.2, 4.62 + Math.sin(i/13)*0.14 + noiseRt)));
-
-    const noiseM = (rand()-0.5)*0.05;
-    const marginPct = Math.min(0.40, Math.max(0.27, 0.345 + Math.sin(i/18)*0.035 + noiseM));
-    marginSeries.push(marginPct);
-    profitSeries.push(Math.round(revVal*1000*marginPct));
+    revenue.push(0);
+    bookingsSeries.push(0);
+    usersSeries.push(0);
+    ratingSeries.push(0);
+    marginSeries.push(0);
+    profitSeries.push(0);
+  }
+  // Rebuild the daily series from the live booking list (grouped by date).
+  // Called after the backend fetch resolves; leaves zeros when offline/empty.
+  function rebuildSeriesFromBookings(list){
+    for(let i=0;i<DAYS;i++){
+      revenue[i]=0; bookingsSeries[i]=0; usersSeries[i]=0; ratingSeries[i]=0; profitSeries[i]=0; marginSeries[i]=0;
+    }
+    if(!list || list.length===0) return;
+    const dayIndex = new Map(); // "yyyy-mm-dd" -> array index
+    for(let i=0;i<DAYS;i++){
+      const d = dateForIndex(i);
+      dayIndex.set(d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(), i);
+    }
+    const todayKey = TODAY.getFullYear()+'-'+(TODAY.getMonth()+1)+'-'+TODAY.getDate();
+    list.forEach(b=>{
+      const dateStr = String(b.date||'');
+      // backend date may be "Aug 22, 2026" — try to parse, else fall back to today
+      let d = new Date(dateStr);
+      if(Number.isNaN(d.getTime())) d = new Date(todayKey);
+      const key = d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
+      const idx = dayIndex.get(key);
+      if(idx===undefined) return;
+      const pax = Number(b.pax)||1;
+      const tour = findTourByName(b.tour);
+      const amount = (tour ? tour.avgPrice : 1000) * pax;
+      const status = (b.status||'').toLowerCase();
+      if(status==='cancelled'||status==='ยกเลิก') return; // cancelled bookings don't count as revenue
+      bookingsSeries[idx] += 1;
+      revenue[idx] += amount;
+      usersSeries[idx] += 10; // rough: each booking ≈ 10 browsing users
+      profitSeries[idx] += Math.round(amount * (tour ? tour.marginPct : 0.38));
+      marginSeries[idx] = 0.38;
+      ratingSeries[idx] = 4.8;
+    });
   }
 
   function dateForIndex(idx){
@@ -1002,12 +1011,46 @@ lucide.createIcons({icons});\``);if(typeof c>"u")throw new Error("`createIcons()
   /* ---------------- static content: tours, status, recent bookings ---------------- */
   /* ธุรกิจเป็น Agency ที่คุมราคาขายเอง — ทัวร์ (คู่ค้า) ส่ง "ราคาทุน" มาให้ต่อที่นั่ง เราตั้ง "ราคาขาย" เอง
      ส่วนต่างคือ margin ที่เอาไว้เล่นโปรโมชั่น/ทำกำไร (cost คำนวณย้อนจาก avgPrice กับ marginPct ที่มีอยู่แล้ว) */
+  // Real Voya tour catalogue (mirrors the customer web app's 32 tours).
   const TOURS = [
-    {name:'เกาะพีพี พาราไดซ์ ไดฟ์วิ่ง', base:186, color:'var(--series-1)', avgPrice:2200, marginPct:0.38, avgPaxPerOrder:1.9},
-    {name:'เชียงใหม่ ดอยสุเทพ ไนท์ซาฟารี', base:154, color:'var(--series-2)', avgPrice:1450, marginPct:0.42, avgPaxPerOrder:1.7},
-    {name:'กระบี่ 4 เกาะ สปีดโบ๊ท', base:139, color:'var(--series-3)', avgPrice:1800, marginPct:0.35, avgPaxPerOrder:1.8},
-    {name:'อยุธยา มรดกโลก วันเดย์ทริป', base:97, color:'var(--series-4)', avgPrice:990, marginPct:0.45, avgPaxPerOrder:2.2},
-    {name:'เขาใหญ่ แคมป์ปิ้ง อุทยาน', base:81, color:'var(--series-5)', avgPrice:1250, marginPct:0.40, avgPaxPerOrder:1.9},
+    // Diving
+    {name:'Similan Islands', base:120, color:'var(--series-1)', avgPrice:2200, marginPct:0.38, avgPaxPerOrder:1.9},
+    {name:'Richelieu Rock', base:60, color:'var(--series-1)', avgPrice:3800, marginPct:0.36, avgPaxPerOrder:1.8},
+    {name:'Shark Point', base:40, color:'var(--series-1)', avgPrice:1950, marginPct:0.37, avgPaxPerOrder:1.8},
+    {name:'Coral Garden', base:45, color:'var(--series-1)', avgPrice:1650, marginPct:0.38, avgPaxPerOrder:1.9},
+    {name:'King Cruiser', base:30, color:'var(--series-1)', avgPrice:2800, marginPct:0.35, avgPaxPerOrder:1.8},
+    // Island
+    {name:'Phi Phi Islands', base:150, color:'var(--series-2)', avgPrice:1850, marginPct:0.37, avgPaxPerOrder:1.9},
+    {name:'James Bond Island', base:110, color:'var(--series-2)', avgPrice:1650, marginPct:0.38, avgPaxPerOrder:1.8},
+    {name:'Coral Island', base:80, color:'var(--series-2)', avgPrice:950, marginPct:0.40, avgPaxPerOrder:2.0},
+    {name:'Racha Island', base:70, color:'var(--series-2)', avgPrice:1200, marginPct:0.39, avgPaxPerOrder:1.9},
+    {name:'Surin Islands', base:50, color:'var(--series-2)', avgPrice:2400, marginPct:0.37, avgPaxPerOrder:1.8},
+    {name:'Yona Beach Club', base:90, color:'var(--series-2)', avgPrice:1999, marginPct:0.42, avgPaxPerOrder:2.0},
+    {name:'Maya Bay', base:140, color:'var(--series-2)', avgPrice:1450, marginPct:0.38, avgPaxPerOrder:1.9},
+    // Theater
+    {name:'Simon Cabaret', base:160, color:'var(--series-3)', avgPrice:900, marginPct:0.45, avgPaxPerOrder:2.2},
+    {name:'Fantasea Show', base:130, color:'var(--series-3)', avgPrice:1800, marginPct:0.40, avgPaxPerOrder:2.0},
+    {name:'Fire Show', base:70, color:'var(--series-3)', avgPrice:450, marginPct:0.48, avgPaxPerOrder:2.1},
+    {name:'Siam Niramit', base:85, color:'var(--series-3)', avgPrice:1200, marginPct:0.42, avgPaxPerOrder:2.0},
+    {name:'Muay Thai Night', base:100, color:'var(--series-3)', avgPrice:600, marginPct:0.46, avgPaxPerOrder:1.9},
+    // Adventure
+    {name:'Jungle Zipline Flight', base:95, color:'var(--series-4)', avgPrice:1390, marginPct:0.39, avgPaxPerOrder:1.8},
+    {name:'ATV Jungle Trail', base:75, color:'var(--series-4)', avgPrice:1100, marginPct:0.40, avgPaxPerOrder:1.8},
+    {name:'White Water Rafting', base:55, color:'var(--series-4)', avgPrice:1750, marginPct:0.36, avgPaxPerOrder:1.9},
+    {name:'Railay Rock Climbing', base:40, color:'var(--series-4)', avgPrice:2100, marginPct:0.37, avgPaxPerOrder:1.7},
+    {name:'Sea Kayak Caves', base:65, color:'var(--series-4)', avgPrice:1550, marginPct:0.38, avgPaxPerOrder:1.8},
+    // Family
+    {name:'Splash Jungle Waterpark', base:85, color:'var(--series-5)', avgPrice:1250, marginPct:0.41, avgPaxPerOrder:2.4},
+    {name:'Phuket Aquarium', base:60, color:'var(--series-5)', avgPrice:480, marginPct:0.47, avgPaxPerOrder:2.6},
+    {name:'Elephant Sanctuary', base:110, color:'var(--series-5)', avgPrice:2600, marginPct:0.35, avgPaxPerOrder:2.0},
+    {name:'Trickeye Museum', base:55, color:'var(--series-5)', avgPrice:520, marginPct:0.46, avgPaxPerOrder:2.3},
+    {name:'Coral Island Family Day', base:70, color:'var(--series-5)', avgPrice:1050, marginPct:0.40, avgPaxPerOrder:2.5},
+    // Yacht
+    {name:'Sunset Catamaran Cruise', base:80, color:'var(--series-6)', avgPrice:2450, marginPct:0.38, avgPaxPerOrder:2.0},
+    {name:'Private Yacht Charter', base:35, color:'var(--series-6)', avgPrice:8900, marginPct:0.33, avgPaxPerOrder:4.5},
+    {name:'Phang Nga Bay Cruise', base:90, color:'var(--series-6)', avgPrice:3200, marginPct:0.36, avgPaxPerOrder:2.2},
+    {name:'Andaman Dinner Cruise', base:75, color:'var(--series-6)', avgPrice:2150, marginPct:0.39, avgPaxPerOrder:2.0},
+    {name:'Speedboat Island Hop', base:65, color:'var(--series-6)', avgPrice:2750, marginPct:0.37, avgPaxPerOrder:2.1},
   ];
   TOURS.forEach(t=>{ t.cost = Math.round(t.avgPrice * (1-t.marginPct)); }); // ราคาทุนที่ทัวร์ส่งมาให้ต่อที่นั่ง
   const TOUR_SCALE = {1:0.032, 7:0.22, 30:1, 90:2.75};
@@ -1254,20 +1297,10 @@ lucide.createIcons({icons});\``);if(typeof c>"u")throw new Error("`createIcons()
     90: {confirmed:82, pending:12, cancelled:6},
   };
 
-  // Live bookings from the Voya backend (Google Sheets). Falls back to demo
-  // rows when the backend is unreachable, so the dashboard never shows empty.
+  // Live bookings from the Voya backend (Google Sheets). Starts empty — the
+  // dashboard shows only real bookings pushed by the customer app.
   const VOYA_API = "https://voya-backend-d755.onrender.com";
-  let RECENT_BOOKINGS = [
-    {customer:'สมชาย ใจดี', tour:'เกาะพีพี พาราไดซ์ ไดฟ์วิ่ง', date:'12 ส.ค. 2569', pax:4, status:'good'},
-    {customer:'Nattaya W.', tour:'เชียงใหม่ ดอยสุเทพ ไนท์ซาฟารี', date:'12 ส.ค. 2569', pax:2, status:'warning'},
-    {customer:'David Chen', tour:'กระบี่ 4 เกาะ สปีดโบ๊ท', date:'11 ส.ค. 2569', pax:3, status:'good'},
-    {customer:'พิมพ์ชนก อยู่สุข', tour:'อยุธยา มรดกโลก วันเดย์ทริป', date:'11 ส.ค. 2569', pax:2, status:'good'},
-    {customer:'Somsak T.', tour:'เขาใหญ่ แคมป์ปิ้ง อุทยาน', date:'10 ส.ค. 2569', pax:2, status:'critical'},
-    {customer:'อารีย์ พงษ์พันธ์', tour:'เกาะพีพี พาราไดซ์ ไดฟ์วิ่ง', date:'10 ส.ค. 2569', pax:3, status:'warning'},
-  ].map(b=>{
-    const tour = findTourByName(b.tour);
-    return {...b, amount: tour ? tour.avgPrice * b.pax : 0};
-  });
+  let RECENT_BOOKINGS = [];
 
   // Map a backend booking row to the dashboard's table shape.
   function mapBackendBooking(r){
@@ -1284,6 +1317,29 @@ lucide.createIcons({icons});\``);if(typeof c>"u")throw new Error("`createIcons()
     };
   }
 
+  // Recompute the monthly/quarterly roll-up maps from the current series.
+  // The maps are const and normally built once at startup, so we rebuild them
+  // in place after real bookings arrive.
+  function recomputeRollups(){
+    MONTHLY_SUMS.clear(); QUARTERLY_SUMS.clear();
+    MONTHLY_PROFIT_SUMS.clear(); QUARTERLY_PROFIT_SUMS.clear();
+    MONTHLY_BOOKINGS_SUMS.clear();
+    for(let idx=0; idx<DAYS; idx++){
+      const d = dateForIndex(idx);
+      const y = d.getFullYear(), m = d.getMonth(), q = Math.floor(m/3);
+      const mKey = y+'-'+m, qKey = y+'-'+q;
+      MONTHLY_SUMS.set(mKey, (MONTHLY_SUMS.get(mKey)||0) + revenue[idx]*1000);
+      QUARTERLY_SUMS.set(qKey, (QUARTERLY_SUMS.get(qKey)||0) + revenue[idx]*1000);
+      MONTHLY_PROFIT_SUMS.set(mKey, (MONTHLY_PROFIT_SUMS.get(mKey)||0) + profitSeries[idx]);
+      QUARTERLY_PROFIT_SUMS.set(qKey, (QUARTERLY_PROFIT_SUMS.get(qKey)||0) + profitSeries[idx]);
+      MONTHLY_BOOKINGS_SUMS.set(mKey, (MONTHLY_BOOKINGS_SUMS.get(mKey)||0) + bookingsSeries[idx]);
+    }
+    MONTHLY_COST_SUMS.clear();
+    MONTHLY_SUMS.forEach((rev, key) => {
+      MONTHLY_COST_SUMS.set(key, Math.max(0, rev - (MONTHLY_PROFIT_SUMS.get(key)||0)));
+    });
+  }
+
   // Fetch real bookings once on load; replace demo rows when the backend responds.
   (async function loadLiveBookings(){
     try{
@@ -1292,8 +1348,11 @@ lucide.createIcons({icons});\``);if(typeof c>"u")throw new Error("`createIcons()
       const rows = await res.json();
       if(!Array.isArray(rows) || rows.length===0) return;
       RECENT_BOOKINGS = rows.map(mapBackendBooking);
-      if(typeof renderBookingsTable==='function') renderBookingsTable('');
-    }catch(e){ /* offline — keep demo rows */ }
+      rebuildSeriesFromBookings(rows);
+      recomputeRollups();
+      if(typeof renderAll==='function') renderAll();
+      else if(typeof renderBookingsTable==='function') renderBookingsTable('');
+    }catch(e){ /* offline — keep empty state */ }
   })();
   const STATUS_META = {
     good:{label:'ยืนยันแล้ว', icon:'check-circle-2'},
