@@ -1254,7 +1254,10 @@ lucide.createIcons({icons});\``);if(typeof c>"u")throw new Error("`createIcons()
     90: {confirmed:82, pending:12, cancelled:6},
   };
 
-  const RECENT_BOOKINGS = [
+  // Live bookings from the Voya backend (Google Sheets). Falls back to demo
+  // rows when the backend is unreachable, so the dashboard never shows empty.
+  const VOYA_API = "https://voya-backend-d755.onrender.com";
+  let RECENT_BOOKINGS = [
     {customer:'สมชาย ใจดี', tour:'เกาะพีพี พาราไดซ์ ไดฟ์วิ่ง', date:'12 ส.ค. 2569', pax:4, status:'good'},
     {customer:'Nattaya W.', tour:'เชียงใหม่ ดอยสุเทพ ไนท์ซาฟารี', date:'12 ส.ค. 2569', pax:2, status:'warning'},
     {customer:'David Chen', tour:'กระบี่ 4 เกาะ สปีดโบ๊ท', date:'11 ส.ค. 2569', pax:3, status:'good'},
@@ -1265,6 +1268,33 @@ lucide.createIcons({icons});\``);if(typeof c>"u")throw new Error("`createIcons()
     const tour = findTourByName(b.tour);
     return {...b, amount: tour ? tour.avgPrice * b.pax : 0};
   });
+
+  // Map a backend booking row to the dashboard's table shape.
+  function mapBackendBooking(r){
+    const status = (r.status||'').toLowerCase();
+    const st = status==='confirmed'||status==='ยืนยันแล้ว' ? 'good' : status==='cancelled'||status==='ยกเลิก' ? 'critical' : 'warning';
+    const tour = findTourByName(r.tour);
+    return {
+      customer: r.customer || 'ไม่ระบุชื่อ',
+      tour: r.tour || 'ทัวร์ไม่ระบุ',
+      date: r.date || r.created_at || '',
+      pax: Number(r.pax) || 1,
+      status: st,
+      amount: tour ? tour.avgPrice * (Number(r.pax)||1) : 0,
+    };
+  }
+
+  // Fetch real bookings once on load; replace demo rows when the backend responds.
+  (async function loadLiveBookings(){
+    try{
+      const res = await fetch(VOYA_API + '/api/bookings');
+      if(!res.ok) return;
+      const rows = await res.json();
+      if(!Array.isArray(rows) || rows.length===0) return;
+      RECENT_BOOKINGS = rows.map(mapBackendBooking);
+      if(typeof renderBookingsTable==='function') renderBookingsTable('');
+    }catch(e){ /* offline — keep demo rows */ }
+  })();
   const STATUS_META = {
     good:{label:'ยืนยันแล้ว', icon:'check-circle-2'},
     warning:{label:'รอดำเนินการ', icon:'clock'},
