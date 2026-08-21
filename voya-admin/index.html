@@ -1134,12 +1134,23 @@ lucide.createIcons({icons});\``);if(typeof c>"u")throw new Error("`createIcons()
   ];
   (function(){
     const totalBookings = MONTHLY_BOOKINGS_SUMS.get(CURRENT_YEAR+'-'+CURRENT_MONTH) || 0;
-    const channelWeights = CHANNELS.map(c=>Math.max(0.01, c.share + (rand()-0.5)*0.03));
+    // Fixed channel mix (no random jitter) — allocation derives from REAL
+    // monthly bookings, so zero bookings means every channel shows 0%.
+    const channelWeights = CHANNELS.map(c=>Math.max(0.01, c.share));
     const alloc = allocateIntegerByWeights(totalBookings, channelWeights);
     CHANNELS.forEach((c,i)=>{ c.bookings = alloc[i]; });
     const sumBk = CHANNELS.reduce((a,c)=>a+c.bookings,0) || 1;
     CHANNELS.forEach(c=>{ c.pct = c.bookings/sumBk*100; });
   })();
+  // Recompute channel allocation after live bookings arrive.
+  function rebuildChannels(){
+    const totalBookings = MONTHLY_BOOKINGS_SUMS.get(CURRENT_YEAR+'-'+CURRENT_MONTH) || 0;
+    const channelWeights = CHANNELS.map(c=>Math.max(0.01, c.share));
+    const alloc = allocateIntegerByWeights(totalBookings, channelWeights);
+    CHANNELS.forEach((c,i)=>{ c.bookings = alloc[i]; });
+    const sumBk = CHANNELS.reduce((a,c)=>a+c.bookings,0) || 1;
+    CHANNELS.forEach(c=>{ c.pct = c.bookings/sumBk*100; });
+  }
 
   /* ---- 3) CAC & LTV (tied back to this month's marketing spend + new-customer count) ---- */
   const avgOrderValue = TOURS.reduce((a,t)=>a+t.avgPrice*t.base,0) / TOURS.reduce((a,t)=>a+t.base,0);
@@ -1290,12 +1301,35 @@ lucide.createIcons({icons});\``);if(typeof c>"u")throw new Error("`createIcons()
   const CHEAPER_COUNT = COMPETITOR_BENCHMARK.filter(c=>c.diffPct<0).length;
   const AVG_PRICE_DIFF_PCT = COMPETITOR_BENCHMARK.reduce((a,c)=>a+c.diffPct,0)/COMPETITOR_BENCHMARK.length;
 
-  const STATUS_DATA = {
-    1:  {confirmed:58, pending:31, cancelled:11},
-    7:  {confirmed:71, pending:19, cancelled:10},
-    30: {confirmed:78, pending:15, cancelled:7},
-    90: {confirmed:82, pending:12, cancelled:6},
+  // Booking status counts are derived from REAL backend bookings per range.
+  // Starts at zeros; rebuilt when live bookings arrive.
+  let STATUS_DATA = {
+    1:  {confirmed:0, pending:0, cancelled:0},
+    7:  {confirmed:0, pending:0, cancelled:0},
+    30: {confirmed:0, pending:0, cancelled:0},
+    90: {confirmed:0, pending:0, cancelled:0},
   };
+
+  function rebuildStatusData(list){
+    const zero = () => ({confirmed:0, pending:0, cancelled:0});
+    const byRange = {1:zero(), 7:zero(), 30:zero(), 90:zero()};
+    if(!list || list.length===0){ STATUS_DATA = byRange; return; }
+    const cutoffDays = {1:1, 7:7, 30:30, 90:90};
+    const today = new Date(TODAY);
+    today.setHours(0,0,0,0);
+    list.forEach(b=>{
+      let d = new Date(String(b.date||''));
+      if(Number.isNaN(d.getTime())) d = new Date(today);
+      d.setHours(0,0,0,0);
+      const ageDays = Math.round((today - d)/86400000);
+      const st = (b.status||'').toLowerCase();
+      const key = (st==='confirmed'||st==='ยืนยันแล้ว') ? 'confirmed' : (st==='cancelled'||st==='ยกเลิก') ? 'cancelled' : 'pending';
+      for(const [range, days] of Object.entries(cutoffDays)){
+        if(ageDays <= days) byRange[range][key] += 1;
+      }
+    });
+    STATUS_DATA = byRange;
+  }
 
   // Live bookings from the Voya backend (Google Sheets). Starts empty — the
   // dashboard shows only real bookings pushed by the customer app.
@@ -1349,7 +1383,9 @@ lucide.createIcons({icons});\``);if(typeof c>"u")throw new Error("`createIcons()
       if(!Array.isArray(rows) || rows.length===0) return;
       RECENT_BOOKINGS = rows.map(mapBackendBooking);
       rebuildSeriesFromBookings(rows);
+      rebuildStatusData(rows);
       recomputeRollups();
+      rebuildChannels();
       if(typeof renderAll==='function') renderAll();
       else if(typeof renderBookingsTable==='function') renderBookingsTable('');
     }catch(e){ /* offline — keep empty state */ }
@@ -1901,16 +1937,19 @@ lucide.createIcons({icons});\``);if(typeof c>"u")throw new Error("`createIcons()
       {key:'cancelled', label:STATUS_META.critical.label, icon:STATUS_META.critical.icon, val:d.cancelled, color:'var(--status-critical)'},
     ];
     const bar = segs.map(s=>{
-      const w = (s.val/total*100);
+      const w = total>0 ? (s.val/total*100) : 0;
       const showLabel = w > 12;
       return `<div class="status-seg" style="width:${w}%; background:${s.color}" data-tip="${s.label}: ${s.val}%">${showLabel?`<span>${s.val}%</span>`:''}</div>`;
-    }).join('');
-    const legend = segs.map(s=>`
+    }).join('') || `<div class="status-empty" style="padding:14px;color:var(--text-muted);font-size:12px;text-align:center;">ยังไม่มีข้อมูลการจอง</div>`;
+    const legend = segs.map(s=>{
+      const pct = total>0 ? Math.round(s.val/total*100) : 0;
+      return `
       <div class="status-legend-row">
         <i data-lucide="${s.icon}" style="color:${s.color}"></i>
         <span class="name">${s.label}</span>
-        <span class="pct" style="color:${s.color}">${s.val}%</span>
-      </div>`).join('');
+        <span class="pct" style="color:${s.color}">${pct}%</span>
+      </div>`;
+    }).join('');
 
     document.getElementById('statusBarWrap').innerHTML = `
       <div class="status-bar">${bar}</div>
